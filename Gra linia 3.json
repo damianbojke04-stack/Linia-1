@@ -1,0 +1,6 @@
+{
+  "appId": "pl.rewir.gra",
+  "appName": "Rewir",
+  "webDir": "www",
+  "android": { "useLegacyBridge": true }
+}
