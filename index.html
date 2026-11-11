@@ -10704,11 +10704,9 @@ function civGround(c,s,P,now){
     c.strokeStyle='rgba(40,60,30,.16)';c.lineWidth=1;poly(c,[P(i-.5,j-.5,0),P(i+.5,j-.5,0),P(i+.5,j+.5,0),P(i-.5,j+.5,0)]);c.stroke();}
   /* drogi i płaskie projekty kładziemy od razu na trawie */
   for(const o of C.items){if(!o.flat)continue;const a=P(o.u,o.v+1,0);if(a.x>gW+s||a.y>gH+s||a.x<-2*s||a.y<-2*s)continue;try{dRoad(c,s,P,o,now);}catch(e){}}
-  c.strokeStyle='#8a6a42';c.lineWidth=Math.max(1,s*.02);c.beginPath();
-  for(const [i,j,di,dj] of C.fence){const ex=i+di*.47,ey=j+dj*.47,a=dj?P(i-.5,ey,.12):P(ex,j-.5,.12),b=dj?P(i+.5,ey,.12):P(ex,j+.5,.12);if(a.x>gW+s||a.y>gH+s||b.x<-s||b.y<-s)continue;c.moveTo(a.x,a.y);c.lineTo(b.x,b.y);}c.stroke();
 }
 function civObjects(list,s,P,now){
-  const C=civLayout();if(!C)return;
+  const C=civLayout();if(!C)return;try{outerObjects(list,s,P);}catch(e){}
   for(const o of C.items){if(o.flat)continue;const p=P(o.x,o.y,0);if(p.x<-2*s||p.x>gW+2*s||p.y<-2*s||p.y>gH+3*s)continue;
     if(o.civ&&TA[o.cell]){o.a=TA[o.cell].a;o.fl=TA[o.cell].fl;}list.push(o);}
   for(const q of RC){const A=q.a.split(',').map(Number),B=q.b.split(',').map(Number),t=Math.min(1,q.t),hz=A[1]===B[1],sd=hz?(B[0]>=A[0]?-1:1):(B[1]>=A[1]?1:-1),off=.09*sd,x=A[0]+(B[0]-A[0])*t+(hz?0:off),y=A[1]+(B[1]-A[1])*t+(hz?off:0);
@@ -10804,7 +10802,9 @@ function drawFox(c,s,now){
   if(s>=14){const t2=P(MU,BV1+.4,2.6+(sh.wl-1)*.4);c.font='800 '+Math.max(11,s*.26)+'px sans-serif';c.textAlign='center';c.fillStyle='#ffd98a';c.strokeStyle='rgba(0,0,0,.8)';c.lineWidth=3.5;c.strokeText('FOX LAND · BAZA',t2.x,t2.y);c.fillText('FOX LAND · BAZA',t2.x,t2.y);
     const W=wallSt(),fr=W.f.fallen?0:W.hp/W.max,bw=Math.max(90,s*2.4),bh=Math.max(6,s*.14),bx=t2.x-bw/2,by=t2.y+6,hit=W.f.hitT&&now-W.f.hitT<400;
     c.fillStyle='rgba(0,0,0,.65)';c.fillRect(bx-2,by-2,bw+4,bh+4);c.fillStyle=fr>.5?'#4fd06a':fr>.25?'#f2c14e':'#e0332b';c.fillRect(bx,by,bw*fr,bh);if(hit){c.fillStyle='rgba(255,255,255,.5)';c.fillRect(bx,by,bw*fr,bh);}
-    c.font='800 '+Math.max(9,s*.17)+'px sans-serif';c.lineWidth=3;const tx=W.f.fallen?'MUR ZNISZCZONY':'MUR '+Math.ceil(W.hp)+' / '+W.max;c.strokeText(tx,t2.x,by+bh+Math.max(10,s*.2));c.fillStyle='#fff';c.fillText(tx,t2.x,by+bh+Math.max(10,s*.2));}
+    c.font='800 '+Math.max(9,s*.17)+'px sans-serif';c.lineWidth=3;const tx=W.f.fallen?'MUR ZNISZCZONY':'MUR '+Math.ceil(W.hp)+' / '+W.max;c.strokeText(tx,t2.x,by+bh+Math.max(10,s*.2));c.fillStyle='#fff';c.fillText(tx,t2.x,by+bh+Math.max(10,s*.2));
+    const O=owSt(),of=outerUp()?O.hp/O.max:0,oy=by+bh+Math.max(16,s*.32),oh=O.f.ohitT&&now-O.f.ohitT<400;c.fillStyle='rgba(0,0,0,.65)';c.fillRect(bx-2,oy-2,bw+4,bh+4);c.fillStyle=of>.5?'#6fb3ff':of>.25?'#f2c14e':'#e0332b';c.fillRect(bx,oy,bw*of,bh);if(oh){c.fillStyle='rgba(255,255,255,.5)';c.fillRect(bx,oy,bw*of,bh);}
+    const tx2=of>0?'MUR ZEWN. '+Math.ceil(O.hp)+' / '+O.max:'MUR ZEWN. PADŁ';c.strokeText(tx2,t2.x,oy+bh+Math.max(10,s*.2));c.fillText(tx2,t2.x,oy+bh+Math.max(10,s*.2));}
   c.restore();
 }
 let DM={t:-1e9,v:0};
@@ -10987,9 +10987,64 @@ function gameOver(){
   el.querySelector('#foxGOLook').onclick=()=>{el.remove();};
 }
 let goShown=false;
+/* ===== v112: MUR ZEWNĘTRZNY wokół całego terytorium — pierwsza linia obrony cywilów (jego upadek nie kończy gry) ===== */
+const OWN=['','Palisada','Mur kamienny','Mur betonowy'],OWC=[0,0,300,800],OWM=[0,1,1.8,3];
+let OE=null;
+function outerEdges(){const sh=foxShape();if(!sh)return null;const key=civSig()+':'+sh.key;if(OE&&OE.key===key)return OE;
+  const H={},V={},segs=[],e=[],X=.06;let n=0;
+  for(const k in GD.cells){const p=gUn(k),i=p[0],j=p[1];for(const [di,dj] of [[0,-1],[1,0],[0,1],[-1,0]]){if(GD.cells[gKey(i+di,j+dj)])continue;n++;
+    const li=i-sh.c[0],lj=j-sh.c[1];segs.push([li,lj,di,dj,CS.has(li+','+lj)]);
+    if(dj){const y=j+dj*.5;(H[y]||(H[y]=[])).push([i-.5,i+.5]);}else{const x=i+di*.5;(V[x]||(V[x]=[])).push([j-.5,j+.5]);}}}
+  const mg=(L,cb)=>{L.sort((a,b)=>a[0]-b[0]);let a=L[0][0],b=L[0][1];for(let q=1;q<L.length;q++){if(L[q][0]<=b+.01)b=Math.max(b,L[q][1]);else{cb(a,b);a=L[q][0];b=L[q][1];}}cb(a,b);};
+  for(const y in H)mg(H[y],(a,b)=>e.push([a-X,+y,b+X,+y]));for(const x in V)mg(V[x],(a,b)=>e.push([+x,a-X,+x,b+X]));
+  return OE={key:key,segs:segs,e:e,n:n};}
+function owSt(){const f=fortSt();f.owl=Math.max(1,Math.min(3,f.owl|0||1));const O=outerEdges(),m=O?Math.round((300+50*O.n)*OWM[f.owl]):1;if(!Number.isFinite(f.ohp))f.ohp=m;if(f.ohp>m)f.ohp=m;return {hp:f.ohp,max:m,f:f};}
+function outerUp(){if(!GD.base||!GD.origin||!useFort())return false;const f=fortSt();if(f.fallen)return false;return !Number.isFinite(f.ohp)||f.ohp>0;}
+{const IW=window.__foxWall;window.__foxWall={
+  up(){return IW.up();},
+  pt(){if(outerUp()){const O=outerEdges();if(O&&O.e.length){const e=O.e[Math.floor(Math.random()*O.e.length)],t=Math.random();return [e[0]+(e[2]-e[0])*t,e[1]+(e[3]-e[1])*t];}}return IW.pt();},
+  edges(){if(!IW.up())return [];if(outerUp()){const O=outerEdges();if(O)return O.e;}return IW.edges();},
+  hit(d){if(!IW.up())return;if(outerUp()){const W=owSt(),f=W.f;d*=[0,1,.8,.6][f.owl];f.ohp=Math.max(0,f.ohp-d);f.ohitT=performance.now();
+      if(f.ohp<=0){f.odown=true;gToast('Mur zewnętrzny padł! Robaki atakują cywilów. Odbuduje się po fali.');gSave();}
+      else if(!f.owt||Date.now()-f.owt>20000){f.owt=Date.now();gToast('Robaki gryzą mur zewnętrzny! Wytrzymałość '+Math.round(f.ohp/W.max*100)+'%.');}return;}
+    IW.hit(d);}
+};}
+function outerTick(dt){
+  const O=owSt(),f=O.f;
+  if(GW.state==='idle'&&O.hp<O.max){f.ohp=Math.min(O.max,f.ohp+O.max*.015*dt);if(f.odown&&f.ohp>0)f.odown=false;}
+  if(!outerUp())return;
+  for(const b of gBugs){if(b.hp<=0)continue;if(!GD.cells[gKey(Math.round(b.x),Math.round(b.y))]){b._fo2=[b.x,b.y];continue;}
+    if(b._fo2){b.x=b._fo2[0];b.y=b._fo2[1];}
+    else{const sh=foxShape(),Oe=outerEdges();let best=null,bd=1e9;for(const e of Oe.e){const hz=e[1]===e[3],px=hz?Math.max(e[0],Math.min(e[2],b.x)):e[0],py=hz?e[1]:Math.max(e[1],Math.min(e[3],b.y)),d=Math.hypot(b.x-px,b.y-py);if(d<bd){bd=d;best=[px,py,hz];}}
+      if(best){const cu=Math.round(b.x),cv=Math.round(b.y);b.x=best[0]+(best[2]?0:Math.sign(best[0]-cu)*.12);b.y=best[1]+(best[2]?Math.sign(best[1]-cv)*.12:0);b._fo2=[b.x,b.y];}}
+    b.gnaw=true;window.__foxWall.hit((b.dps||5)*dt);if(!outerUp())break;}
+}
+function dOWall(c,s,P,o,now){
+  if(o.down){bx3(c,P,o.x,o.y,o.w,o.d,.06,'#6a5a48');for(let k=0;k<3;k++){const u=o.x+(o.hz?k*.32+.08:-.03),v=o.y+(o.hz?-.03:k*.32+.08);bx3(c,P,u,v,.12,.12,.05+hh(o.sq,k,1)*.07,'#7a6a58');}return;}
+  if(o.owl===1){bx3(c,P,o.x,o.y,o.w,o.d,.04,'#6e4c2a',.26);
+    const n=7;for(let k=0;k<n;k++){const f=(k+.5)/n,u=o.hz?o.x+f*o.w-.05:o.x+o.w/2-.05,v=o.hz?o.y+o.d/2-.05:o.y+f*o.d-.05,h=.4+hh(o.sq,k,2)*.08;bx3(c,P,u,v,.1,.1,h,'#8a6238');
+      const t=P(u+.05,v+.05,h+.1),a=P(u,v,h),b=P(u+.1,v,h),e=P(u+.1,v+.1,h);c.fillStyle='#6e4c2a';c.beginPath();c.moveTo(a.x,a.y);c.lineTo(b.x,b.y);c.lineTo(e.x,e.y);c.lineTo(t.x,t.y);c.closePath();c.fill();}
+    return;}
+  if(o.owl===2){shad(c,P,o,.5);bx3(c,P,o.x,o.y,o.w,o.d,.5,['#8f8574','#86806e','#958a78'][o.sq%3]);
+    const f=o.hz?FL:FRt,args=[P,o.x,o.y,o.w,o.d,.5,0];c.strokeStyle='rgba(40,30,20,.25)';c.lineWidth=1;for(const g of [.33,.66]){const p=f(...args,0,g),q=f(...args,1,g);c.beginPath();c.moveTo(p.x,p.y);c.lineTo(q.x,q.y);c.stroke();}
+    for(let k=0;k<3;k++){const a=k/3+.06;if(o.hz)bx3(c,P,o.x+a*o.w,o.y,o.w*.2,o.d,.12,'#8f8574',.5);else bx3(c,P,o.x,o.y+a*o.d,o.w,o.d*.2,.12,'#8f8574',.5);}return;}
+  shad(c,P,o,.62);bx3(c,P,o.x,o.y,o.w,o.d,.62,'#a2a29a');const f=o.hz?FL:FRt,args=[P,o.x,o.y,o.w,o.d,.62,0];
+  for(let k=0;k<6;k++)fq(c,f,args,k/6,.05,(k+.5)/6,.18,'rgba(232,176,32,.85)');wireSeg(c,s,P,{x:o.x,y:o.y,w:o.w,d:o.d,h:.62,hz:o.hz});
+}
+function dOPost(c,s,P,o,now){if(o.down)return;bx3(c,P,o.x,o.y,o.w,o.d,o.h,['','#6e4c2a','#7d7464','#8e8e88'][o.owl]);}
+Object.assign(DRW,{owall:dOWall,opost:dOPost});
+function outerObjects(list,s,P){
+  const O=outerEdges();if(!O)return;const f=fortSt(),W=owSt(),down=!outerUp(),T=[0,.12,.2,.24][W.f.owl],seen={};
+  for(const [i,j,di,dj,inner] of O.segs){if(inner)continue;const hz=dj!==0,ey=j+dj*.5,ex=i+di*.5;
+    const o=hz?{k:'owall',x:i-.5,y:ey-T/2,w:1,d:T}:{k:'owall',x:ex-T/2,y:j-.5,w:T,d:1};o.hz=hz;o.owl=W.f.owl;o.down=down;o.sq=(i*7+j*13)&255;o.h=.5;
+    const p=P(o.x,o.y,0);if(p.x<-2*s||p.x>gW+2*s||p.y<-2*s||p.y>gH+3*s)continue;list.push(o);
+    for(const [vx,vy] of hz?[[i-.5,ey],[i+.5,ey]]:[[ex,j-.5],[ex,j+.5]]){const k=vx+','+vy;if(seen[k])continue;seen[k]=1;const PW=T+.06;list.push({k:'opost',x:vx-PW/2,y:vy-PW/2,w:PW,d:PW,h:[0,.5,.66,.74][W.f.owl],owl:W.f.owl,down:down});}}
+}
+
 function bastionTick(dt){
   const f=fortSt(),sh=foxShape();if(!sh)return;
   if(f.fallen){if(!goShown){goShown=true;gameOver();}return;}
+  outerTick(dt);
   const W=wallSt();
   /* odbudowa muru, gdy nie ma fali */
   if(GW.state==='idle'&&f.whp<W.max)f.whp=Math.min(W.max,f.whp+W.max*.01*dt);
@@ -11252,7 +11307,7 @@ function civHtml(){const C=civLayout()||{pop:0,tax:0,nd:0,cells:[],built:0},cv=f
    +'<div class="tabs">'+CGRP.map(x=>'<button data-cg="'+x[0]+'" class="'+(g===x[0]?'on':'')+'">'+x[1]+'</button>').join('')+'</div>'
    +'<div class="shop">'+Object.keys(CIVB).filter(k=>CIVB[k].g===g).map(k=>'<button data-cp="'+k+'" class="'+(ED.civPick===k?'y':'')+'"'+(GD.coins<CIVB[k].cost?' disabled':'')+'><i>'+CIVB[k].i+'</i>'+CIVB[k].n+'<small>'+CIVB[k].cost+' 🪙'+(CIVB[k].tax?' · +'+CIVB[k].tax+'/min':'')+'</small></button>').join('')+'</div>'
    +'<div class="d">'+(ED.civPick?CIVB[ED.civPick].i+' '+CIVB[ED.civPick].n+': '+CIVB[ED.civPick].d+'. Dotknij zielony kwadrat'+(ED.civPick==='road'||ED.civPick==='field'?' albo przeciągnij palcem, by budować po kolei.':'.'):'Osiedle: '+C.pop+' mieszkańców · '+C.built+' budowli na '+C.cells.length+' kwadratach · podatek +'+C.tax+' monet/min. Wybierz projekt i dotknij zielony kwadrat.')+'</div>';}
-function wallHtml(){const W=wallSt(),miss=Math.ceil(W.max-W.hp);return '<div class="row"><b>Bastion: '+Math.ceil(W.hp)+' / '+W.max+'</b>'+(miss?'<button class="y" data-a="wrep"'+(GD.coins<Math.ceil(miss*.25)?' disabled':'')+'>Napraw · '+Math.ceil(miss*.25)+' 🪙</button>':'')+'</div><div class="d">Mur to ostatni bastion: gdy padnie — koniec gry. Sam odbudowuje się między falami.</div>';}
+function wallHtml(){const W=wallSt(),miss=Math.ceil(W.max-W.hp),O=owSt(),om=Math.ceil(O.max-O.hp);return '<div class="row"><b>'+OWN[O.f.owl]+' (zewn.): '+Math.ceil(O.hp)+' / '+O.max+'</b>'+(om?'<button data-a="orep"'+(GD.coins<Math.ceil(om*.2)?' disabled':'')+'>Napraw · '+Math.ceil(om*.2)+' 🪙</button>':'')+(O.f.owl<3?'<button class="y" data-a="oup"'+(GD.coins<OWC[O.f.owl+1]?' disabled':'')+'>'+OWN[O.f.owl+1]+' · '+OWC[O.f.owl+1]+' 🪙</button>':'')+'</div><div class="d">Mur zewnętrzny otacza całe terytorium i chroni cywilów. Gdy padnie, robaki wchodzą na kwadraty cywilów; odbudowuje się po fali.</div>'+'<div class="row"><b>Bastion: '+Math.ceil(W.hp)+' / '+W.max+'</b>'+(miss?'<button class="y" data-a="wrep"'+(GD.coins<Math.ceil(miss*.25)?' disabled':'')+'>Napraw · '+Math.ceil(miss*.25)+' 🪙</button>':'')+'</div><div class="d">Mur to ostatni bastion: gdy padnie — koniec gry. Sam odbudowuje się między falami.</div>';}
 function ui(force){
   const can=tab==='game'&&GR.phase==='def'&&GD.base&&GD.origin&&useFort();
   if(!can&&ED.on)setEdit(false);
@@ -11278,6 +11333,8 @@ box.addEventListener('click',e=>{
   const a=b.dataset.a;
   if(a==='done')setEdit(false);else if(a==='rot')rotateSel();else if(a==='sell')sellSel();else if(a==='desel'){ED.sel=null;ui(true);}
   else if(a==='wl')upgradeWall();else if(a==='csell')civSell();else if(a==='cdesel'){ED.csel=null;ui(true);}else if(a==='wrep')repairWall();
+  else if(a==='orep'){const O=owSt(),c2=Math.ceil((O.max-O.hp)*.2);if(GD.coins>=c2){GD.coins-=c2;O.f.ohp=O.max;O.f.odown=false;gSave();gToast('Mur zewnętrzny naprawiony.');ui(true);}}
+  else if(a==='oup'){const O=owSt(),c2=OWC[O.f.owl+1];if(O.f.owl<3&&GD.coins>=c2){const fr=O.hp/O.max;GD.coins-=c2;O.f.owl++;O.f.ohp=owSt().max*fr;gSave();gToast('Ulepszono: '+OWN[O.f.owl]+'.');ui(true);}}
 });
 setInterval(()=>ui(false),400);ui(true);
 window.__foxEd={ED:ED,setEdit:setEdit,place:place,buyCell:buyCell,upgradeWall:upgradeWall,valid:valid,freeze:freeze,view:view0,pick:pick,toLocal:toLocal,T:{map:map,gLL:gLL,gP:gP,setTab:setTab,GR:GR,GD:()=>GD}};
