@@ -10028,7 +10028,7 @@ function layout(sh){
   const step=WL>=3?3:4,md=(a,m)=>((a%m)+m)%m,TW=.32+(WL-1)*.04;
   for(const k in V){const p=V[k];let t=false;
     if(p.h&&p.v)t=true;else if(p.h>=2)t=md(Math.round(p.x+.5),step)===0;else if(p.v>=2)t=md(Math.round(p.y+.5),step)===0;
-    if(t)o.push({k:'tower',x:p.x-TW/2,y:p.y-TW/2,w:TW,d:TW,h:TH,solid:false,ti:p.x*3+p.y*7,wl:WL});}
+    if(t&&p.h&&p.v){const PW=WD+.08;o.push({k:'post',x:p.x-PW/2,y:p.y-PW/2,w:PW,d:PW,h:WH+.08,solid:false,wl:WL});}}
   /* na zewnątrz: las i skały wokół terytorium (nie na kwadratach i nie przed bramą) */
   const gx=gl[0]+dir[0]*1.6,gy=gl[1]+dir[1]*1.6;let nt=0;
   for(let i=Math.floor(BU0)-3;i<=Math.ceil(BU1)+3&&nt<110;i++)for(let j=Math.floor(BV0)-3;j<=Math.ceil(BV1)+3&&nt<110;j++){
@@ -10497,7 +10497,8 @@ function dRocket(c,s,P,o,now){
     c.strokeStyle=r?'#4a5245':'#3c4238';c.lineWidth=Math.max(2,s*.07);c.beginPath();c.moveTo(b.x,b.y);c.lineTo(e.x,e.y);c.stroke();c.fillStyle='#d8532b';c.beginPath();c.arc(e.x,e.y,Math.max(1,s*.025),0,7);c.fill();}
   if(o.fl>0){const b=P(u-tx*.3,v-ty*.3,.3);smoke(c,s,b,now,o.x,'200,200,200');glow(c,b.x,b.y,s*.5,'255,170,60',.7*o.fl);}
 }
-const DRW={farm:dFarm,forge:dForge,saw:dSaw,quarry:dQuarry,powder:dPowder,barracks:dBarracks,runway:dRunway,ctower:dCtower,dhangar:dDrones,heavy:dHeavy,rocket:dRocket};
+function dPost(c,s,P,o){shad(c,P,o,o.h);bx3(c,P,o.x,o.y,o.w,o.d,o.h,['#8c8a82','#8c8a82','#a4a29a','#6f7470','#9a8f7c'][o.wl||1]);}
+const DRW={post:dPost,farm:dFarm,forge:dForge,saw:dSaw,quarry:dQuarry,powder:dPowder,barracks:dBarracks,runway:dRunway,ctower:dCtower,dhangar:dDrones,heavy:dHeavy,rocket:dRocket};
 
 function foxP(sh,s){const q=gP(sh.c[0],sh.c[1]);const P=(u,v,z)=>({x:q.x+u*s-(z||0)*s*.26,y:q.y-v*s-(z||0)*s*.8});P.s=s;P.q=q;return P;}
 function drawFox(c,s,now){
