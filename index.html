@@ -11011,7 +11011,7 @@ function outerUp(){if(!GD.base||!GD.origin||!useFort())return false;const f=fort
 };}
 function outerTick(dt){
   const O=owSt(),f=O.f;
-  if(GW.state==='idle'&&O.hp<O.max){f.ohp=Math.min(O.max,f.ohp+O.max*.015*dt);if(f.odown&&f.ohp>0)f.odown=false;}
+  if(GW.state==='idle'&&!gBugs.some(b=>b.hp>0)&&O.hp<O.max){f.ohp=Math.min(O.max,f.ohp+O.max*.015*dt);if(f.odown&&f.ohp>0)f.odown=false;}
   if(!outerUp())return;
   for(const b of gBugs){if(b.hp<=0)continue;if(!GD.cells[gKey(Math.round(b.x),Math.round(b.y))]){b._fo2=[b.x,b.y];continue;}
     if(b._fo2){b.x=b._fo2[0];b.y=b._fo2[1];}
@@ -11047,7 +11047,7 @@ function bastionTick(dt){
   outerTick(dt);
   const W=wallSt();
   /* odbudowa muru, gdy nie ma fali */
-  if(GW.state==='idle'&&f.whp<W.max)f.whp=Math.min(W.max,f.whp+W.max*.01*dt);
+  if(GW.state==='idle'&&!gBugs.some(b=>b.hp>0)&&f.whp<W.max)f.whp=Math.min(W.max,f.whp+W.max*.01*dt);
   /* robak w środku bastionu wraca za mur i gryzie mur (rój nie przepchnie go przez ścianę) */
   const c0=sh.c[0],c1=sh.c[1];
   for(const b of gBugs){if(b.hp<=0)continue;const u=b.x-c0,v=b.y-c1;
